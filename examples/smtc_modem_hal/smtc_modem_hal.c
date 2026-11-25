@@ -58,7 +58,7 @@
 #if defined( STM32L073xx )
 #include "smtc_hal_eeprom.h"
 #endif
-#if defined( STM32L476xx ) || defined( LINUX_PLATFORM ) || defined( FPB_RA0E2 )
+#if defined( STM32L476xx ) || defined( LINUX_PLATFORM ) || defined( FPB_RA0E2 ) || defined( STM32F411xE )
 #include "smtc_hal_flash.h"
 #endif
 
@@ -101,6 +101,14 @@
 #define ADDR_FLASH_MODEM_CONTEXT ADDR_FLASH_PAGE_358
 #define ADDR_FLASH_LORAWAN_CONTEXT ADDR_FLASH_PAGE_359
 #define ADDR_FLASH_MODEM_KEY_CONTEXT ADDR_FLASH_PAGE_360
+#elif defined( STM32F411xE )
+// STM32F411 (Black Pill): 2 KB virtual pages inside flash sector 7, see smtc_hal_f4/smtc_hal_flash.h
+#define ADDR_FLASH_FUOTA ADDR_FLASH_F4_FUOTA
+#define ADDR_FLASH_STORE_AND_FORWARD ADDR_FLASH_F4_STORE_AND_FORWARD
+#define ADDR_FLASH_SECURE_ELEMENT_CONTEXT ADDR_FLASH_F4_SECURE_ELEMENT_CONTEXT
+#define ADDR_FLASH_MODEM_CONTEXT ADDR_FLASH_F4_MODEM_CONTEXT
+#define ADDR_FLASH_LORAWAN_CONTEXT ADDR_FLASH_F4_LORAWAN_CONTEXT
+#define ADDR_FLASH_MODEM_KEY_CONTEXT ADDR_FLASH_F4_MODEM_KEY_CONTEXT
 #elif defined( LINUX_PLATFORM )
 // Flash page size is 2048 bytes, total size is 256KB (128 pages)
 // Define page addresses for different contexts
@@ -256,7 +264,7 @@ void smtc_modem_hal_context_restore( const modem_context_type_t ctx_type, uint32
     case CONTEXT_SECURE_ELEMENT:
         hal_eeprom_read_buffer( ADDR_EEPROM_SECURE_ELEMENT_CONTEXT_OFFSET, buffer, size );
         break;
-#elif defined( STM32L476xx ) || defined( LINUX_PLATFORM )
+#elif defined( STM32L476xx ) || defined( LINUX_PLATFORM ) || defined( STM32F411xE )
     case CONTEXT_MODEM:
         hal_flash_read_buffer( ADDR_FLASH_MODEM_CONTEXT, buffer, size );
         break;
@@ -327,7 +335,7 @@ void smtc_modem_hal_context_store( const modem_context_type_t ctx_type, uint32_t
     case CONTEXT_SECURE_ELEMENT:
         hal_eeprom_write_buffer( ADDR_EEPROM_SECURE_ELEMENT_CONTEXT_OFFSET, buffer, size );
         break;
-#elif defined( STM32L476xx ) || defined( LINUX_PLATFORM )
+#elif defined( STM32L476xx ) || defined( LINUX_PLATFORM ) || defined( STM32F411xE )
     case CONTEXT_MODEM:
         hal_flash_erase_page( ADDR_FLASH_MODEM_CONTEXT, 1 );
         hal_flash_write_buffer( ADDR_FLASH_MODEM_CONTEXT, buffer, size );
@@ -396,7 +404,7 @@ void smtc_modem_hal_context_flash_pages_erase( const modem_context_type_t ctx_ty
 {
     switch( ctx_type )
     {
-#if defined( STM32L476xx ) || defined( LINUX_PLATFORM )
+#if defined( STM32L476xx ) || defined( LINUX_PLATFORM ) || defined( STM32F411xE )
     case CONTEXT_STORE_AND_FORWARD:
         hal_flash_erase_page( ADDR_FLASH_STORE_AND_FORWARD + offset, nb_page );
         break;
@@ -629,6 +637,9 @@ uint16_t smtc_modem_hal_flash_get_page_size( void )
 
 /* ------------ For Real Time OS compatibility  ------------*/
 
+#if !defined( SMTC_MODEM_HAL_RTOS_HOOKS )
+// Bare-metal defaults. An RTOS application defines SMTC_MODEM_HAL_RTOS_HOOKS and provides
+// these three functions itself (see main_examples/ping_pong_freertos_example/rtos_hooks.c).
 void smtc_modem_hal_user_lbm_irq( void )
 {
     // Do nothing in case implementation is bare metal
@@ -641,6 +652,7 @@ void smtc_modem_hal_unprotect_api_call( void )
 {
     // Do nothing in case implementation is bare metal
 }
+#endif
 
 /*
  * -----------------------------------------------------------------------------

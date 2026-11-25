@@ -90,6 +90,40 @@ extern "C" {
 #define SX126X_RADIO_RF_SWITCH_CTRL NC
 #define RADIO_ANTENNA_SWITCH NC
 
+#elif defined( BLACKPILL_F411 )
+// WeAct "Black Pill" STM32F411CEU6 + LR2021 module (USP port, UTFPR LoRa lab)
+//
+//   Black Pill        LR2021 module
+//   PA5  SPI1_SCK  -> SCK
+//   PA6  SPI1_MISO <- MISO
+//   PA7  SPI1_MOSI -> MOSI
+//   PA4  (GPIO)    -> NSS
+//   PB0  (GPIO)    -> NRESET
+//   PB1  (GPIO)    <- BUSY   (open-drain on some modules: pull-up enabled in smtc_hal_mcu.c)
+//   PA1  (EXTI1)   <- DIO main IRQ (DIO8 on the Wio-LR2021 / LoRa Plus convention)
+//   3V3 / GND
+//
+// PA11/PA12 (USB) are left free for a future USB CDC console, PA13/PA14 for SWD.
+#define DEBUG_UART_TX PA_2  // USART2 TX -> RX of a USB-serial adapter
+#define DEBUG_UART_RX PA_3
+#define RADIO_SPI_ID 1
+#define RADIO_NRST PB_0
+#define RADIO_SPI_MOSI PA_7
+#define RADIO_SPI_MISO PA_6
+#define RADIO_SPI_SCLK PA_5
+#define RADIO_NSS PA_4
+#define RADIO_BUSY_PIN PB_1
+#define RADIO_DIO_MAIN PA_1
+#define RADIO_LNA_CTRL NC
+#define SMTC_LED_TX PC_13  // on-board blue LED, active low (see SMTC_LED_ACTIVE_LOW in smtc_hal_led.c)
+#define SMTC_LED_RX PB_12  // optional external LED (active high)
+#define SMTC_LED_SCAN NC
+#define EXTI_BUTTON PA_0  // on-board KEY button (to GND, internal pull-up)
+#define HW_MODEM_COMMAND_PIN NC
+#define HW_MODEM_EVENT_PIN NC
+#define HW_MODEM_BUSY_PIN NC
+#define SX126X_RADIO_RF_SWITCH_CTRL NC
+#define RADIO_ANTENNA_SWITCH NC
 #else
 // STM32 Nucleo board pinout (default)
 // Debug uart specific pinout for debug print
@@ -153,7 +187,7 @@ extern "C" {
 #define HW_MODEM_TX_LINE PC_10
 #define HW_MODEM_RX_LINE PC_11
 
-#endif  // FPB_RA0E2
+#endif  // FPB_RA0E2 / BLACKPILL_F411 / Nucleo
 
 // clang-format on
 

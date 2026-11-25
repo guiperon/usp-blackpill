@@ -274,6 +274,14 @@ if(TARGET smtc_rac)
 endif()
 
 add_subdirectory(${EXAMPLES_DIR}/smtc_modem_hal smtc_modem_hal_build)
+
+# RTOS integration: the application provides smtc_modem_hal_user_lbm_irq() and
+# smtc_modem_hal_(un)protect_api_call() (see ping_pong_freertos_example/rtos_hooks.c)
+option(USE_FREERTOS "Build for FreeRTOS (application provides the modem HAL RTOS hooks)" OFF)
+if(USE_FREERTOS)
+    target_compile_definitions(smtc_modem_hal_implem PRIVATE SMTC_MODEM_HAL_RTOS_HOOKS)
+    message(STATUS "USE_FREERTOS: ON (modem HAL RTOS hooks provided by the application)")
+endif()
 add_subdirectory(${EXAMPLES_DIR}/radio_hal radio_hal_build)
 
 # Radio-specific compile definitions
@@ -519,9 +527,19 @@ function(setup_example_target TARGET_NAME)
     )
 
     # Add flash target
-    add_custom_target(flash_${TARGET_NAME}
-        DEPENDS ${TARGET_NAME}
-        COMMAND st-flash --connect-under-reset write "${CMAKE_BINARY_DIR}/${TARGET_NAME}.bin" 0x8000000
-        USES_TERMINAL
-    )
+    if(BOARD STREQUAL "BLACKPILL_F411")
+        # Black Pill + ST-Link (or clone) via OpenOCD, as in the lab toolchain
+        add_custom_target(flash_${TARGET_NAME}
+            DEPENDS ${TARGET_NAME}
+            COMMAND openocd -f interface/stlink.cfg -f target/stm32f4x.cfg
+                    -c "program $<TARGET_FILE:${TARGET_NAME}> verify reset exit"
+            USES_TERMINAL
+        )
+    else()
+        add_custom_target(flash_${TARGET_NAME}
+            DEPENDS ${TARGET_NAME}
+            COMMAND st-flash --connect-under-reset write "${CMAKE_BINARY_DIR}/${TARGET_NAME}.bin" 0x8000000
+            USES_TERMINAL
+        )
+    endif()
 endfunction()
