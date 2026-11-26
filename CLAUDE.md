@@ -10,8 +10,8 @@ Port of Semtech USP v1.2.1 to the WeAct Black Pill (STM32F411CEU6). Read README_
 
 ## Where things are
 - MCU HAL port: `examples/smtc_hal_f4/` (TIM5 = modem timer, RTC = time base, flash sector 7 = NVM, software RNG).
-- Pinout: `BLACKPILL_F411` block in `examples/modem_pinout.h`.
-- Radio BSP (shared with Semtech boards): `examples/radio_hal/ral_lr20xx_bsp.c` (DIO/TCXO/RF switch to confirm for our module).
+- Pinout: `BLACKPILL_F411` block in `examples/modem_pinout.h` (LabSC board, Waveshare Core2021: IRQ on DIO11 -> PB9, SPI1 on PB3/PB4/PB5, NSS PA15).
+- Radio BSP: `examples/radio_hal/ral_lr20xx_bsp.c`, `BLACKPILL_F411` blocks (all IRQs on DIO11, XTAL, no RF switch).
 - RTOS glue: `examples/main_examples/ping_pong_freertos_example/rtos_hooks.c`.
 
 ## Rules

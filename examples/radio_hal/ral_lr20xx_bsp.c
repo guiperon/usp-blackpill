@@ -399,7 +399,17 @@ void ral_lr20xx_bsp_get_dio_function( const void* context, lr20xx_system_dio_t d
         break;
     case LR20XX_SYSTEM_DIO_6:
         break;
-#if defined( LEGACY_EVK_LR20XX )
+#if defined( BLACKPILL_F411 )
+    // Waveshare Core2021: only DIO7, DIO8 and DIO11 reach the module header, and the LabSC board
+    // wires header pin 3 (DIO11) to the MCU IRQ line. DIO5/DIO6 are not connected (no RF switch:
+    // separate Sub-GHz and 2.4 GHz antenna connectors).
+    case LR20XX_SYSTEM_DIO_7:
+        break;
+    case LR20XX_SYSTEM_DIO_8:
+        break;
+    case LR20XX_SYSTEM_DIO_9:
+        break;
+#elif defined( LEGACY_EVK_LR20XX )
     case LR20XX_SYSTEM_DIO_7:
         break;
     case LR20XX_SYSTEM_DIO_8:
@@ -420,6 +430,9 @@ void ral_lr20xx_bsp_get_dio_function( const void* context, lr20xx_system_dio_t d
     case LR20XX_SYSTEM_DIO_10:
         break;
     case LR20XX_SYSTEM_DIO_11:
+#if defined( BLACKPILL_F411 )
+        *function = LR20XX_SYSTEM_DIO_FUNC_IRQ;  // RADIO IRQ (LF clock is the internal RC, DIO11 is free)
+#endif
         break;
     }
 }
@@ -445,7 +458,14 @@ void ral_lr20xx_bsp_get_dio_sleep_drive( const void* context, lr20xx_system_dio_
 
 void ral_lr20xx_bsp_get_dio_irq_mask( const void* context, lr20xx_system_dio_t dio, lr20xx_system_irq_mask_t* irq_mask )
 {
-#if defined( LEGACY_EVK_LR20XX )
+#if defined( BLACKPILL_F411 )
+    if( dio == LR20XX_SYSTEM_DIO_11 )  // Single IRQ line: every IRQ, FIFO RX/TX included
+    {
+        // ral_lr20xx_set_dio_irq_params() fails if a requested IRQ is not routed to any DIO, and
+        // DIO7 (the FIFO IRQ line of the LoRa Plus EVK) is not wired on this board.
+        *irq_mask = 0xFFFFFFFF;
+    }
+#elif defined( LEGACY_EVK_LR20XX )
     if( dio == LR20XX_SYSTEM_DIO_9 )
     {
         *irq_mask = 0xFFFFFFFF & ~( LR20XX_SYSTEM_IRQ_FIFO_RX | LR20XX_SYSTEM_IRQ_FIFO_TX );

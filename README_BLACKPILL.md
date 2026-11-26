@@ -35,6 +35,7 @@ git diff --stat v1.2.1 -- . ':!examples/mcu_drivers' ':!examples/rtos'   # só o
 | `examples/toolchain.cmake` | nova placa `BOARD=BLACKPILL_F411` |
 | `examples/common.cmake` | opção `USE_FREERTOS`; alvo `flash_*` via OpenOCD para a Black Pill |
 | `examples/modem_pinout.h` | bloco de pinagem `BLACKPILL_F411` |
+| `examples/radio_hal/ral_lr20xx_bsp.c` | blocos `BLACKPILL_F411`: IRQ do rádio no DIO11 (Core2021 na placa LabSC) |
 | `examples/smtc_modem_hal/smtc_modem_hal.c` | ramo `STM32F411xE` para os endereços de contexto em flash; os 3 ganchos RTOS ficam sob `#if !defined(SMTC_MODEM_HAL_RTOS_HOOKS)` |
 
 ### Diferenças L476 → F411 e como foram resolvidas
@@ -57,25 +58,32 @@ git diff --stat v1.2.1 -- . ':!examples/mcu_drivers' ':!examples/rtos'   # só o
 
 ---
 
-## 2. Pinagem
+## 2. Pinagem (placa LabSC "Blackpill/ESP32C6 + Radioenge AT interface + LR1121", rev 0)
 
-| Black Pill | Função | Módulo LR2021 |
-|---|---|---|
-| PA5 | SPI1_SCK | SCK |
-| PA6 | SPI1_MISO | MISO |
-| PA7 | SPI1_MOSI | MOSI |
-| PA4 | GPIO (NSS) | NSS |
-| PB0 | GPIO (reset) | NRESET |
-| PB1 | GPIO (entrada, pull-up interno) | BUSY |
-| PA1 | EXTI1, borda de subida | DIO de IRQ principal (**DIO8** na convenção Wio-LR2021/LoRa Plus) |
-| 3V3 / GND | alimentação | 3V3 / GND |
-| PA2 / PA3 | USART2 TX/RX (trace, 115200 8N1) | — (adaptador USB-serial) |
-| PA0 | KEY (vira manager no ping-pong) | — |
-| PC13 | LED azul onboard (LED TX) | — |
-| PB12 | LED RX externo (opcional) | — |
+O módulo de rádio é o **Waveshare Core2021** (LR2021), no footprint do Core1121. Os dois são
+compatíveis pino a pino, **exceto o pino 3**: no Core1121 ele é o DIO9, no Core2021 é o **DIO11**.
+Por isso os nomes de rede da placa continuam `LR1121_*`.
 
-PA11/PA12 ficam livres para USB CDC, e PA13/PA14 para o SWD. Para mudar a pinagem, edite o bloco
-`BLACKPILL_F411` em `examples/modem_pinout.h`.
+| Black Pill | Função | Rede na placa | Core2021 (pino) |
+|---|---|---|---|
+| PB3 | SPI1_SCK (AF5) | SCLK | SCK (13) |
+| PB4 | SPI1_MISO (AF5) | MISO | MISO (11) |
+| PB5 | SPI1_MOSI (AF5) | MOSI | MOSI (12) |
+| PA15 | GPIO (NSS) | LR1121_SSEL | NSS (14) |
+| PB6 | GPIO (reset) | LR1121_RESET | RESET (10) |
+| PB8 | GPIO (entrada) | LR1121_BUSY | BUSY (9) |
+| PB9 | EXTI9, borda de subida | LR1121_IRQ | **DIO11** (3) |
+| PA8 / PB0 | GPIO, mantidos em nível alto | TEMP1_SSEL / TEMP2_SSEL | (termopares no mesmo SPI) |
+| PA2 / PA3 | USART2 TX/RX (trace, 115200 8N1) | UART_AT_TX / UART_AT_RX | — (FTDI via diodos) |
+| PB12 / PB13 / PB14 | LED TX / RX / SCAN (ativos em alto) | LED1 / LED2 / LED3 | — |
+| PA0 | KEY da Black Pill (vira manager) | OUT1_3V3 | — |
+
+Observações:
+- PB3, PB4 e PA15 são pinos de JTAG depois do reset, e o firmware os reconfigura. O SWD (PA13/PA14) continua funcionando; o SWO (PB3) é perdido.
+- O BSP (`ral_lr20xx_bsp.c`, bloco `BLACKPILL_F411`) põe **todas** as IRQs do rádio no DIO11. O DIO7 e o DIO8 não estão ligados na placa.
+- O Core2021 usa cristal passivo de 32 MHz (`RAL_XOSC_CFG_XTAL`, o padrão do BSP) e não tem RF switch: as antenas Sub-GHz e 2,4 GHz têm conectores separados. **Use o conector LoRa_ANT (Sub-GHz).**
+
+Para mudar a pinagem, edite o bloco `BLACKPILL_F411` em `examples/modem_pinout.h`.
 
 ---
 
@@ -116,7 +124,7 @@ Uso de memória (o F411 tem 384 KB de flash para a aplicação e 128 KB de RAM):
 
 ## 4. Plano de validação
 
-**Fase 1 — `porting_tests` em cada placa.** Saída esperada no terminal: todos OK em
+**Fase 1 — `porting_tests` em cada placa.** O trace sai pelo FTDI da própria placa (U2). Saída esperada no terminal: todos OK em
 `porting_test_spi`, `radio_irq`, `get_time`, `timer_irq`, `stop_timer`, `disable_enable_irq`,
 `random`, `config_rx_radio`, `config_tx_radio`, `sleep_ms` e `timer_irq_low_power`.
 Depois, ponha `ENABLE_TEST_FLASH 1` em `main_porting_tests.c` para testar o armazenamento de contexto.
@@ -124,8 +132,8 @@ O teste grava, reseta a placa e confere os dados depois do reset.
 
 Diagnóstico rápido:
 - `porting_test_spi` falha → fiação SPI/NSS/BUSY/NRESET, ou o BUSY sem pull-up.
-- `radio_irq` falha → DIO errado em `RADIO_DIO_MAIN`, ou o BSP do rádio está roteando a IRQ para outro DIO (ver item 5.1).
-- `config_rx/tx` falha → configuração de clock do rádio (XTAL × TCXO, ver item 5.1).
+- `radio_irq` falha → confira a ligação do pino 3 (DIO11) do Core2021 ao PB9 e o bloco `BLACKPILL_F411` em `ral_lr20xx_bsp.c`.
+- `config_rx/tx` falha → configuração do rádio no BSP (regulador, clock) ou alimentação de 3V3 fraca na transmissão.
 - `get_time`/`timer_irq` fora da tolerância → LSE não partiu (procure o aviso "LSE did not start").
 
 **Fase 2 — `ping_pong` bare-metal entre as duas placas.** Aperte KEY em uma delas: ela vira
@@ -138,17 +146,10 @@ o heap livre e a folga de pilha das tarefas. Use isso para dimensionar as pilhas
 
 ## 5. Pendências e pontos de atenção (TODO)
 
-### 5.1 BSP do rádio (`examples/radio_hal/ral_lr20xx_bsp.c`): confirmar para o "Core2021"
-O BSP padrão foi escrito para o Wio-LR2021 na placa LoRa Plus da Semtech (não é o modo `LEGACY_EVK_LR20XX`). Ele assume:
-- **DIO8** = IRQ principal e **DIO7** = IRQs de FIFO;
-- **DIO5/DIO6** = controle de RF switch;
-- regulador **DCDC**;
-- **`RAL_XOSC_CFG_XTAL`**, ou seja, sem controle de TCXO pelo rádio.
-
-Se o módulo usado tiver TCXO alimentado pelo pino VTCXO do LR2021, mude para
-`RAL_XOSC_CFG_TCXO_RADIO_CTRL` com a tensão e o tempo de partida do datasheet do módulo.
-Também confira qual DIO chega no PA1. Se for o DIO9, compile com `-DLEGACY_EVK_LR20XX=ON`
-ou ajuste as funções `ral_lr20xx_bsp_get_dio_*`.
+### 5.1 Barramento SPI compartilhado
+- **Termopares (J1/J2):** compartilham SCLK e MISO com o rádio. Os CS deles (PA8, PB0) ficam em nível alto desde o boot. Se os módulos de termopar forem MAX6675 (máx. ~4 MHz), a leitura vai exigir baixar a velocidade do SPI (hoje 12 MHz) e usar um mutex de barramento compartilhado com o rádio.
+- **ESP32-C6 (M1):** está ligado às mesmas redes (SPI, reset, BUSY, IRQ, UART, saídas). **Não monte a Black Pill e o ESP32-C6 ao mesmo tempo**: seriam dois mestres no mesmo barramento.
+- **PA0 (KEY) também é a rede OUT1_3V3.** Hoje é só entrada com pull-up, o que é inofensivo. Se um laboratório futuro usar o PA0 como saída, apertar o KEY vai curto-circuitar a saída com o GND.
 
 ### 5.2 Apagamento de flash trava a CPU
 Apagar um setor de 128 KB leva de 1 a 2 s. Durante esse tempo a execução a partir da flash fica

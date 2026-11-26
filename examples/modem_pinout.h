@@ -91,34 +91,41 @@ extern "C" {
 #define RADIO_ANTENNA_SWITCH NC
 
 #elif defined( BLACKPILL_F411 )
-// WeAct "Black Pill" STM32F411CEU6 + LR2021 module (USP port, UTFPR LoRa lab)
+// WeAct "Black Pill" STM32F411CEU6 + Waveshare Core2021 (LR2021) on the LabSC board
+// "Blackpill/ESP32C6 + Radioenge AT interface + LR1121" (lora-bluepill-sch, rev 0).
+// The board nets are still named LR1121_* (footprint shared with the Core1121).
 //
-//   Black Pill        LR2021 module
-//   PA5  SPI1_SCK  -> SCK
-//   PA6  SPI1_MISO <- MISO
-//   PA7  SPI1_MOSI -> MOSI
-//   PA4  (GPIO)    -> NSS
-//   PB0  (GPIO)    -> NRESET
-//   PB1  (GPIO)    <- BUSY   (open-drain on some modules: pull-up enabled in smtc_hal_mcu.c)
-//   PA1  (EXTI1)   <- DIO main IRQ (DIO8 on the Wio-LR2021 / LoRa Plus convention)
-//   3V3 / GND
+//   Black Pill         net              Core2021 header pin
+//   PB3  SPI1_SCK  AF5 SCLK          -> 13 SCK
+//   PB4  SPI1_MISO AF5 MISO          <- 11 MISO
+//   PB5  SPI1_MOSI AF5 MOSI          -> 12 MOSI
+//   PA15 GPIO          LR1121_SSEL   -> 14 NSS
+//   PB6  GPIO          LR1121_RESET  -> 10 RESET
+//   PB8  GPIO          LR1121_BUSY   <-  9 BUSY
+//   PB9  EXTI9         LR1121_IRQ    <-  3 DIO11 on the Core2021 (DIO9 on the Core1121!)
+//                                       -> ral_lr20xx_bsp.c routes the main IRQ to DIO11
 //
-// PA11/PA12 (USB) are left free for a future USB CDC console, PA13/PA14 for SWD.
-#define DEBUG_UART_TX PA_2  // USART2 TX -> RX of a USB-serial adapter
-#define DEBUG_UART_RX PA_3
+// PB3/PB4/PA15 are JTAG pins after reset: reconfigured as SPI/GPIO (SWD on PA13/PA14 still
+// works; SWO on PB3 is lost). The SPI bus is shared with the two thermocouple headers
+// (TEMP1_SSEL = PA8, TEMP2_SSEL = PB0): their chip selects are driven high at init.
+#define DEBUG_UART_TX PA_2  // USART2 TX = net UART_AT_TX -> FTDI RX (diode-OR) and Radioenge AT_RX
+#define DEBUG_UART_RX PA_3  // USART2 RX = net UART_AT_RX <- Radioenge AT_TX
 #define RADIO_SPI_ID 1
-#define RADIO_NRST PB_0
-#define RADIO_SPI_MOSI PA_7
-#define RADIO_SPI_MISO PA_6
-#define RADIO_SPI_SCLK PA_5
-#define RADIO_NSS PA_4
-#define RADIO_BUSY_PIN PB_1
-#define RADIO_DIO_MAIN PA_1
+#define RADIO_NRST PB_6
+#define RADIO_SPI_MOSI PB_5
+#define RADIO_SPI_MISO PB_4
+#define RADIO_SPI_SCLK PB_3
+#define RADIO_NSS PA_15
+#define RADIO_BUSY_PIN PB_8
+#define RADIO_DIO_MAIN PB_9
 #define RADIO_LNA_CTRL NC
-#define SMTC_LED_TX PC_13  // on-board blue LED, active low (see SMTC_LED_ACTIVE_LOW in smtc_hal_led.c)
-#define SMTC_LED_RX PB_12  // optional external LED (active high)
-#define SMTC_LED_SCAN NC
-#define EXTI_BUTTON PA_0  // on-board KEY button (to GND, internal pull-up)
+#define SPI_SHARED_CS_1 PA_8  // TEMP1_SSEL (thermocouple J2), kept high
+#define SPI_SHARED_CS_2 PB_0  // TEMP2_SSEL (thermocouple J1), kept high
+#define SMTC_LED_TX PB_12     // LED1 (active high)
+#define SMTC_LED_RX PB_13     // LED2 (active high)
+#define SMTC_LED_SCAN PB_14   // LED3 (active high)
+#define SMTC_LED_ACTIVE_LOW 0
+#define EXTI_BUTTON PA_0  // Black Pill KEY button. NOTE: PA0 is also net OUT1_3V3 (optocoupler U7) on this board
 #define HW_MODEM_COMMAND_PIN NC
 #define HW_MODEM_EVENT_PIN NC
 #define HW_MODEM_BUSY_PIN NC

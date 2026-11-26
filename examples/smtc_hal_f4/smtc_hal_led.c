@@ -77,7 +77,9 @@ static const hal_gpio_pin_names_t led_pins[HAL_LED_COUNT] = {
  */
 static bool led_states[HAL_LED_COUNT] = { false, false, false };
 
-// STM32F411 port: bit i set => LED i is active low (Black Pill PC13 LED = HAL_LED_TX)
+// STM32F411 port: bit i set => LED i is active low (e.g. Black Pill PC13 LED as HAL_LED_TX).
+// Can be overridden in modem_pinout.h
+#include "modem_pinout.h"
 #ifndef SMTC_LED_ACTIVE_LOW
 #define SMTC_LED_ACTIVE_LOW ( 1U << HAL_LED_TX )
 #endif

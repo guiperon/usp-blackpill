@@ -255,8 +255,15 @@ static void mcu_gpio_init( void )
 #endif
 
     hal_gpio_init_out( RADIO_NSS, 1 );
-    // BUSY: open-drain on some LR2021 modules (e.g. Wio-LR2021) -> pull-up needed.
-    // The internal pull-up (~40 kOhm) is enough for the lab; an external one is better.
+#if defined( SPI_SHARED_CS_1 )
+    // Other devices on the radio SPI bus must stay deselected, or they fight the radio on MISO
+    hal_gpio_init_out( SPI_SHARED_CS_1, 1 );
+#endif
+#if defined( SPI_SHARED_CS_2 )
+    hal_gpio_init_out( SPI_SHARED_CS_2, 1 );
+#endif
+    // BUSY: push-pull on the Waveshare Core2021, open-drain on some other modules (e.g.
+    // Wio-LR2021). The internal pull-up (~40 kOhm) is harmless in the first case and needed in the second.
     hal_gpio_init_in( RADIO_BUSY_PIN, BSP_GPIO_PULL_MODE_UP, BSP_GPIO_IRQ_MODE_OFF, NULL );
     // Radio IRQ: EXTI rising edge, the callback is attached later by smtc_modem_hal
     hal_gpio_init_in( RADIO_DIO_MAIN, BSP_GPIO_PULL_MODE_DOWN, BSP_GPIO_IRQ_MODE_RISING, NULL );
